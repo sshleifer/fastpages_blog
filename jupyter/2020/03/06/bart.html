@@ -96,7 +96,7 @@ window.onload = wrap_img;
        • <span class="read-time" title="Estimated read time">
     
     
-      13 min read
+      15 min read
     
 </span></p>
 
@@ -126,14 +126,20 @@ window.onload = wrap_img;
 
   <div class="post-content e-content" itemprop="articleBody">
     <ul class="section-nav">
-<li class="toc-entry toc-h3"><a href="#Intro">Intro </a></li>
-<li class="toc-entry toc-h3"><a href="#Trick-1:-Bart-=-(Bert, GPT2)">Trick 1: Bart = (Bert, GPT2) </a>
+<li class="toc-entry toc-h3"><a href="#Seq2Seq-Pretraining">Seq2Seq Pretraining </a></li>
+<li class="toc-entry toc-h3"><a href="#Big-Idea:-Bidirectional-Encoder,-Left-To-Right-Decoder">Big Idea: Bidirectional Encoder, Left-To-Right Decoder </a></li>
+<li class="toc-entry toc-h2"><a href="#Bart">Bart </a>
 <ul>
-<li class="toc-entry toc-h5"><a href="#Digression-on-API-Design-Decisions:">Digression on API Design Decisions: </a></li>
-</ul>
-</li>
+<li class="toc-entry toc-h4"><a href="#Digression-on-API-Design-Decisions:">Digression on API Design Decisions: </a></li>
 <li class="toc-entry toc-h3"><a href="#Trick-2:-super_fast_cached_generation_mode">Trick 2: super_fast_cached_generation_mode </a></li>
 <li class="toc-entry toc-h3"><a href="#Usage">Usage </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#Footnotes">Footnotes </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#Appendix">Appendix </a></li>
+</ul>
+</li>
 <li class="toc-entry toc-h2"><a href="#Boxes-/-Callouts">Boxes / Callouts </a></li>
 <li class="toc-entry toc-h2"><a href="#Footnotes">Footnotes </a></li>
 </ul><!--
@@ -155,10 +161,10 @@ window.onload = wrap_img;
 <div class="cell border-box-sizing text_cell rendered">
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="Intro">
-<a class="anchor" href="#Intro" aria-hidden="true"><span class="octicon octicon-link"></span></a>Intro<a class="anchor-link" href="#Intro"> </a>
+<h3 id="Seq2Seq-Pretraining">
+<a class="anchor" href="#Seq2Seq-Pretraining" aria-hidden="true"><span class="octicon octicon-link"></span></a>Seq2Seq Pretraining<a class="anchor-link" href="#Seq2Seq-Pretraining"> </a>
 </h3>
-<p>In October 2019, teams from Microsoft, Google and Facebook released three new transformer models. All three groups analyzed many different pre-training schemes and found, in general that we (a) achieve better downstream results if we replace Bert's fill-in-the blank cloze task with a more complicated mix of pretraining tasks leads to better performance on downstream tasks. It's a fun game to try to match which of the following quotes from the abstract map to which paper</p>
+<p>In October 2019, teams from Microsoft, Google and Facebook independently published three new transformer papers: UniLM, T5 and Bart. All three papers analyze found, in general that they achieve better downstream performance if they (a) replace Bert's bidirectional architecture with a seq2seq architecture and (b) Bert's fill-in-the blank cloze task with a more complicated mix of pretraining tasks. It's a fun game to try to match which of the following quotes from the abstract map to which paper:</p>
 <ol>
 <li>
 <blockquote>
@@ -167,14 +173,17 @@ window.onload = wrap_img;
 </li>
 <li>
 <blockquote>
-<p>The model is pre-trained using three types of language modeling tasks: unidirectional, bidirectional, and sequence-to-sequence prediction.
-3.
-We present a denoising autoencoder for pretraining sequence to sequence models, ... it uses a standard Transformer-based neural machine translation architecture.</p>
+<p>The model is pre-trained using three types of language modeling tasks: unidirectional, bidirectional, and sequence-to-sequence prediction.</p>
 </blockquote>
-<p>[^1].</p>
-<p>[^1] <em>Answers: (A) T5 Paper, 24 Oct, (B) UniLM, 15 Oct , (C) Bart paper, 29 Oct</em></p>
+</li>
+<li>
+<blockquote>
+<p>We present a denoising autoencoder for pretraining sequence to sequence models, ... it uses a standard Transformer-based neural machine translation architecture.</p>
+</blockquote>
 </li>
 </ol>
+<p>Answers: [^1].
+ [^1:] *Answers: (T5, Oct 24) , (UniLM, Oct. 15) , (Bart, Oct. 29)</p>
 
 </div>
 </div>
@@ -182,17 +191,166 @@ We present a denoising autoencoder for pretraining sequence to sequence models, 
 <div class="cell border-box-sizing text_cell rendered">
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="Trick-1:-Bart-=-(Bert, GPT2)">
-<a class="anchor" href="#Trick-1:-Bart-=-(Bert,%C2%A0GPT2)" aria-hidden="true"><span class="octicon octicon-link"></span></a>Trick 1: <code>Bart = (Bert, GPT2)</code><a class="anchor-link" href="#Trick-1:-Bart-=-(Bert,%C2%A0GPT2)"> </a>
+<p>If you got that right you are very lucky indeed!</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>So lets dig a bit deeper on this big Seq2Seq idea, then dive into some interesting parts of the code!</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Big-Idea:-Bidirectional-Encoder,-Left-To-Right-Decoder">
+<a class="anchor" href="#Big-Idea:-Bidirectional-Encoder,-Left-To-Right-Decoder" aria-hidden="true"><span class="octicon octicon-link"></span></a>Big Idea: Bidirectional Encoder, Left-To-Right Decoder<a class="anchor-link" href="#Big-Idea:-Bidirectional-Encoder,-Left-To-Right-Decoder"> </a>
 </h3>
-<blockquote>
-<p>"Inputs to the encoder need not be aligned with decoder outputs, allowing arbitary noise transformations."</p>
-</blockquote>
-<p>Bidirectional Encoder, Left-To-Right Decoder
-Bert is pretrained to try to predict mask tokens, and needs to look at the whole sequence to get enough info to make a good guess. This is good for tasks where you are allowed to look at the future, but bad for tasks where you are not, like text generation, where you generate the next word conditional on the words you have seen BEFORE. 
-~It also predicts the masks independently, but predicting the mask at time t should really depend on mask predictions at previous timesteps&lt;t~ ~
-GPT2, meanwhile, is pretrained to predict the next word. This means that it is not as good at predicting words in the middl
-e of sentences, especially if the rest of the sentence would be helpful, but it shines in generating the next word.</p>
+<p>Bert is pretrained to try to predict mask tokens, and uses the whole sequence to get enough info to make a good guess. This is good for tasks where the prediction at position <code>i</code> can depend on information from positions after <code>i</code>, but suboptimal for tasks where you are not, like text generation, where you generate the next word conditional on the words you have seen BEFORE.</p>
+<p>In the code, bert's "Fully Visible" <code>attention_mask</code> is boring:</p>
+
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%html</span> 
+
+#hide-input
+{% include image.html alt="Drawing" style="width: 200px;" file="/fastpages_blog/images/copied_from_nb/bert_attn_mask.jpg" %}
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+<div class="output_area">
+
+
+<div class="output_html rendered_html output_subarea ">
+#hide-input
+<img src="bert_attn_mask.jpg" alt="Drawing" style="width: 200px;">
+
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>GPT2, meanwhile, is pretrained to predict the next word.
+This makes it good at generation tasks, where there aren't future tokens to consider, but suboptimal for other downstream tasks where the causal mask provides no benefit.</p>
+<p>Here is the attention mask for GPT2, white squares in y2, x3 show that the prediction for timestep 2 does not depend on the input at timestep 3.</p>
+
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%html</span> 
+
+#hide-input
+{% include image.html alt="Drawing" style="width: 200px;" file="/fastpages_blog/images/copied_from_nb/gpt2_simple_mask.jpg" %}
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+<div class="output_area">
+
+
+<div class="output_html rendered_html output_subarea ">
+
+#hide-input
+<img src="gpt2_simple_mask.jpg" alt="Drawing" style="width: 200px;">
+
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+    
+
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%html</span> 
+
+#hide-input
+{% include image.html alt="Drawing" style="width: 200px;" file="/fastpages_blog/images/copied_from_nb/gpt2_simple_mask.jpg" %}
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+<div class="output_area">
+
+
+<div class="output_html rendered_html output_subarea ">
+
+#hide-input
+<img src="gpt2_simple_mask.jpg" alt="Drawing" style="width: 200px;">
+
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Our new friends get the best of both worlds:</p>
+<p>The encoder is bidirectional  - each token's attention can attend to every other token in the input sequence, while the decoder, which will ultimately have to perform generation, is causal like GPT2.</p>
+<p>We can think about this attention pattern as smushing together our previous two attention masks, or "Causal Mask  with a fully visible prefix" in fancier terms.<sup class="footnote-ref" id="fnref-4"><a href="#fn-4">1</a></sup></p>
+<div class="footnotes">
+<hr>
+<ol>
+<li id="fn-4"><p>The indices dont line up perfectly for the smush to work, but tokens 1 and 2 are the fully visible prefix (or the input to the encoder) and tokens 3,4,5 are the causally masked suffix (or inputs to the decoder). In summarization terms, you could imagine tokens 1 and 2 as the article, and we generate tokens 3-5 auto-regressively.<a href="#fnref-4" class="footnote">↩</a></p></li>
+</ol>
+</div>
 
 </div>
 </div>
@@ -200,7 +358,142 @@ e of sentences, especially if the rest of the sentence would be helpful, but it 
 <div class="cell border-box-sizing text_cell rendered">
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p><img src="/fastpages_blog/images/copied_from_nb/./gpt2_mask.jpeg" alt=""> "Left-to-right mask. For a given token in the sequence, we assign a mask value of 0 for this token and the preceding ones; a value of minus infinity for the later ones. This pretty square can also be called and <code>causal_mask</code> autoregressive mask. (Picture Drawn by Remy Louf)"</p>
+<p><img src="/fastpages_blog/images/copied_from_nb/./t5_mask_diagram.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>This attention pattern is very well suited to summarization and other conditional generation tasks.  You are allowed to attend to the whole document, but as you write your summary, one word at a time, you need only consider what you've already written. The numbers confirm this: all the new fancy guys do a lot better than the old less-fancy guys.</p>
+
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<details class="description">
+      <summary class="btn btn-sm" data-open="Hide Code" data-close="Show Code"></summary>
+        <p></p>
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1">#collapse-hide </span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">'tab1.csv'</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+    </details>
+<div class="output_wrapper">
+<div class="output">
+
+<div class="output_area">
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>CNNDM Rouge 2 score</th>
+    </tr>
+    <tr>
+      <th>Paper</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Bart</th>
+      <td>21.28</td>
+    </tr>
+    <tr>
+      <th>UniLM</th>
+      <td>20.30</td>
+    </tr>
+    <tr>
+      <th>BertSumABS</th>
+      <td>19.39</td>
+    </tr>
+    <tr>
+      <th>t5-base</th>
+      <td>20.34</td>
+    </tr>
+    <tr>
+      <th>t5 11B</th>
+      <td>21.55</td>
+    </tr>
+    <tr>
+      <th>TransformerAbs (2018)</th>
+      <td>17.76</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<!-- I start with this not to say that the researchers are lame, but that they were all discovering a very cool idea at the same time. In the following table, you can see that, at least for summarization, it is important to pretrain with a bidirectional encoder and causal decoder: (The UniLM `prefix_lm` is equivalent [^3]) -->
+
+<p><code>BertSumABS</code> [^2] ,exploits the same Seq2Seq setup but doesn't pretrain the decoder.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Bart">
+<a class="anchor" href="#Bart" aria-hidden="true"><span class="octicon octicon-link"></span></a>Bart<a class="anchor-link" href="#Bart"> </a>
+</h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>From here forward, we focus on Bart, which tries out crazy pretraining tasks that you can only do with a seq2seq architecture. Since "Inputs to the encoder need not be aligned with decoder outputs, allowing arbitary noise transformations." They invent a pretraining task called Text Infilling, where you
+replace a <strong>span</strong> of text with a single mask token. This span can be of any length, so the model has to figure out how many  that out!</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The approaches mostly differ in model size (t5 11b is 22x bigger than Bart), and pretraining objectives.
+Bart,</p>
 
 </div>
 </div>
@@ -222,9 +515,9 @@ There is also another mini-trick: Each decoder layer performs cross-attention ov
 <div class="cell border-box-sizing text_cell rendered">
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h5 id="Digression-on-API-Design-Decisions:">
+<h4 id="Digression-on-API-Design-Decisions:">
 <a class="anchor" href="#Digression-on-API-Design-Decisions:" aria-hidden="true"><span class="octicon octicon-link"></span></a>Digression on API Design Decisions:<a class="anchor-link" href="#Digression-on-API-Design-Decisions:"> </a>
-</h5>
+</h4>
 <p>What about Seq2Scalar problems like Classification?</p>
 <p>It makes sense that you would want an Encoder and a Decoder if you wanted the number of stuffs you generate not to depend on the number of stuffs you take as input. You could even understand, in that world, having an API that was like</p>
 <div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">encoder_input_ids</span><span class="p">,</span> <span class="n">encoder_padding_mask</span><span class="p">,</span> <span class="n">decoder_input_ids</span><span class="p">,</span> <span class="n">decoder_causal_attention_mask</span><span class="o">.</span> <span class="n">decoder_padding_mask</span><span class="p">):</span>
@@ -498,6 +791,37 @@ while not Done:
 </div>
     
 
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Footnotes">
+<a class="anchor" href="#Footnotes" aria-hidden="true"><span class="octicon octicon-link"></span></a>Footnotes<a class="anchor-link" href="#Footnotes"> </a>
+</h2>
+<p>[^2] "Text Summarization with Pretrained Encoders" <a href="https://arxiv.org/abs/1908.08345">https://arxiv.org/abs/1908.08345</a></p>
+<p>[^3] Differences between the UniLM Masking strategy and Bart</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Appendix">
+<a class="anchor" href="#Appendix" aria-hidden="true"><span class="octicon octicon-link"></span></a>Appendix<a class="anchor-link" href="#Appendix"> </a>
+</h3>
+<p><img src="./bert_attn_mask.jpg" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/fastpages_blog/images/copied_from_nb/./gpt2_mask.jpeg" alt=""> "Left-to-right mask. For a given token in the sequence, we assign a mask value of 0 for this token and the preceding ones; a value of minus infinity for the later ones. This pretty square can also be called and <code>causal_mask</code> autoregressive mask. (Picture Drawn by Remy Louf)"</p>
+
+</div>
+</div>
+</div>
 <div class="cell border-box-sizing text_cell rendered">
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">

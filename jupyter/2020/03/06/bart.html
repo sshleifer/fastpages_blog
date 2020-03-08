@@ -551,8 +551,8 @@ replace a <strong>span</strong> of text with a single mask token. This span can 
     <span class="n">decoder_padding_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="c1"># ignored pad tokens in decoder_input_ids</span>
 <span class="p">):</span>
 </pre></div>
-<p>When we're doing summarization finetuning, or seq2seq pretraining, we need to take in the second sequence. 
-When we're not, like in a classification context, you can safely ignore all the decoder kwargs and <code>BartModel</code> will make them for you by taking the input_ids (movie review) and shifting them to the right.</p>
+<p>When we're doing summarization finetuning, or seq2seq pretraining, we need to pass <code>decoder_input_ids</code>. (the masks will be made for you if you dont supply them).</p>
+<p>When we're not, like in a classification context, you can safely ignore all the decoder kwargs and <code>BartModel</code> will make them for you by taking the input_ids (movie review) and shifting them to the right. Random, I know.</p>
 <p>The authors' <a href="https://github.com/pytorch/fairseq/issues/1389">motivation</a> for that trick was to facilitate teacher forcing during pre-training, and now that the model has been trained on 64 TPUs for 12 weeks to process this input format, we continue the pattern during inference, but hide it inside the forward method.</p>
 
 </div>

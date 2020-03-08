@@ -145,7 +145,7 @@ window.onload = wrap_img;
 </li>
 <li class="toc-entry toc-h2"><a href="#Footnotes">Footnotes </a>
 <ul>
-<li class="toc-entry toc-h3"><a href="#Appendix">Appendix </a></li>
+<li class="toc-entry toc-h3"><a href="#Cut">Cut </a></li>
 </ul>
 </li>
 </ul><!--
@@ -188,8 +188,8 @@ window.onload = wrap_img;
 </blockquote>
 </li>
 </ol>
-<p>Answers: [^1].
- [^1]: *Answers: (T5, Oct 24) , (UniLM, Oct. 15) , (Bart, Oct. 29)</p>
+<p>Answers: [^1]
+ [^1]: Answers: (T5, Oct 24) , (UniLM, Oct. 15) , (Bart, Oct. 29)</p>
 
 </div>
 </div>
@@ -553,7 +553,7 @@ replace a <strong>span</strong> of text with a single mask token. This span can 
 </pre></div>
 <p>When we're doing summarization finetuning, or seq2seq pretraining, we need to pass <code>decoder_input_ids</code>. (the masks will be made for you if you dont supply them).</p>
 <p>When we're not, like in a classification context, you can safely ignore all the decoder kwargs and <code>BartModel</code> will make them for you by taking the input_ids (movie review) and shifting them to the right. Random, I know.</p>
-<p>The authors' <a href="https://github.com/pytorch/fairseq/issues/1389">motivation</a> for that trick was to facilitate teacher forcing during pre-training, and now that the model has been trained on 64 TPUs for 12 weeks to process this input format, we continue the pattern during inference, but hide it inside the forward method.</p>
+<p>The authors' <a href="https://github.com/pytorch/fairseq/issues/1389">motivation</a> for the shift-right trick was to facilitate teacher forcing during pre-training, and now that the model has been trained on 64 TPUs for 12 weeks to process this input format, we continue the pattern during inference, but hide it inside the forward method.</p>
 
 </div>
 </div>
@@ -687,19 +687,9 @@ Anyways, here is a really slow (pseudocode) way to greedily generate summaries</
 <div class="cell border-box-sizing text_cell rendered">
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="Appendix">
-<a class="anchor" href="#Appendix" aria-hidden="true"><span class="octicon octicon-link"></span></a>Appendix<a class="anchor-link" href="#Appendix"> </a>
+<h3 id="Cut">
+<a class="anchor" href="#Cut" aria-hidden="true"><span class="octicon octicon-link"></span></a>Cut<a class="anchor-link" href="#Cut"> </a>
 </h3>
-<p><img src="./bert_attn_mask.jpg" alt=""></p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered">
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p><img src="/fastpages_blog/images/copied_from_nb/./gpt2_mask.jpeg" alt=""> "Left-to-right mask. For a given token in the sequence, we assign a mask value of 0 for this token and the preceding ones; a value of minus infinity for the later ones. This pretty square can also be called and <code>causal_mask</code> autoregressive mask. (Picture Drawn by Remy Louf)"</p>
-
 </div>
 </div>
 </div>
